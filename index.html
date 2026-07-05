@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>钢桩桩位偏差计算</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body{margin:0;font-family:"Microsoft YaHei",Arial,sans-serif;background:#f5f7fb;color:#1f2937}
+    header{padding:14px 22px;background:#1f4e78;color:white;font-size:20px;font-weight:700;display:flex;align-items:center;gap:12px}
+    .wrap{display:flex;gap:0;padding:14px;height:calc(100vh - 50px);box-sizing:border-box}
+    aside{width:350px;flex-shrink:0;min-height:0;overflow:auto;padding-right:14px;display:flex;flex-direction:column}
+    .splitter-v{width:10px;cursor:col-resize;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+    .splitter-v::before{content:"";display:block;width:4px;height:80px;border-radius:4px;background:#cbd5e1}
+    .splitter-v:hover::before{background:#64748b}
+    main{flex:1;min-width:0;min-height:0;display:grid;grid-template-rows:minmax(260px,1fr) 10px minmax(160px,260px);gap:0}
+    .card{background:white;border:1px solid #d9dee7;border-radius:10px;box-shadow:0 2px 8px rgba(20,40,70,.06);padding:14px;margin-bottom:14px}
+    .card h3{margin:0 0 10px;font-size:16px}
+    button{box-sizing:border-box;width:100%;background:#2f6f9f;color:white;border:1px solid #2f6f9f;border-radius:10px;padding:10px 12px;cursor:pointer;margin:6px 0;font-weight:700}
+    button:hover{background:#285f89}
+    button.secondary{background:#eef5fb;color:#2f6f9f;border-color:#9fc4df}
+    button.secondary:hover{background:#dcecf7}
+    button.danger{background:#f8e8e8;color:#9f3a38;border-color:#e5b7b7}
+    button.danger:hover{background:#f1d6d6}
+    button.outline{background:white;color:#2f6f9f;border:1px solid #9fc4df}
+    input{box-sizing:border-box;width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;margin:4px 0 8px}
+    label{font-size:13px;color:#475569}
+    table{width:100%;border-collapse:collapse;font-size:13px;background:white}
+    th{background:#eef2f7;text-align:center;color:#334155;position:relative}
+    th,td{border:1px solid #d9dee7;padding:6px 7px;white-space:nowrap;text-align:center}
+    tr:nth-child(even) td{background:#f8fafc}
+    .status{font-size:13px;color:#475569;line-height:1.6}
+    .canvas-card{position:relative;min-height:0;margin-bottom:0;overflow:auto;display:flex;align-items:center;justify-content:center}
+    .data-card{min-height:0;margin-bottom:0;overflow:hidden}
+    .data-card .scroll{max-height:calc(100% - 34px)}
+    #resultTable{table-layout:fixed;min-width:760px}
+    #resultTable th,#resultTable td{overflow:hidden;text-overflow:ellipsis}
+    .col-resizer{position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;user-select:none}
+    .col-resizer:hover{background:#9fc4df}
+    canvas{width:1100px;height:560px;flex:0 0 auto;border:1px solid #d9dee7;border-radius:8px;background:white}
+    .legend{position:absolute;right:28px;bottom:26px;background:rgba(255,255,255,.92);border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.7;box-shadow:0 2px 8px rgba(20,40,70,.08)}
+    .legend-item{display:flex;align-items:center;gap:7px}
+    .legend-mark{width:18px;height:10px;display:inline-block;flex:0 0 auto}
+    .legend-blue{background:#1f77b4;border-radius:999px}
+    .legend-red{border:2px dashed #d62728;border-radius:999px}
+    .legend-gray{width:10px;height:10px;background:#666;border-radius:50%;margin-left:4px;margin-right:4px}
+    .legend-line{height:0;border-top:2px dashed #d62728}
+    .scroll{max-height:245px;overflow:auto}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .small{font-size:12px;color:#64748b;line-height:1.5}
+    select{box-sizing:border-box;width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;margin:4px 0 8px;background:white}
+    .collapse-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:8px}
+    .collapse-head h3{margin:0}
+    .collapse-toggle{font-size:12px;color:#64748b}
+    .collapse-body{display:none;margin-top:10px}
+    .card.open .collapse-body{display:block}
+    .file-input{display:none}
+    .file-pick{box-sizing:border-box;width:100%;display:block;text-align:center;background:#eef5fb;border:2px dashed #7aa9ca;color:#2f6f9f;border-radius:10px;padding:14px 10px;font-weight:700;cursor:pointer;margin:8px 0}
+    .file-pick:hover{background:#dcecf7}
+    .file-name{font-size:12px;color:#64748b;margin:-2px 0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .toolbar{display:block;margin-bottom:8px}
+    .modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.35);display:none;align-items:center;justify-content:center;z-index:20}
+    .modal-mask.show{display:flex}
+    .modal{width:min(420px,calc(100vw - 32px));background:white;border-radius:12px;border:1px solid #d9dee7;box-shadow:0 20px 60px rgba(15,23,42,.25);padding:18px}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .modal-head h3{margin:0}
+    .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+    .status-pill{display:inline-block;min-width:46px;text-align:center;border-radius:999px;padding:2px 8px;font-weight:700}
+    .status-ok{background:#e7f2e8;color:#3f6f46;border:1px solid #bdd8c1}
+    .status-warn{background:#f8e8e8;color:#9f3a38;border:1px solid #e5b7b7}
+    .status-missing{background:#eef2f7;color:#64748b;border:1px solid #cbd5e1}
+    tr.row-warn td{background:#fff7f7}
+    .watermark{display:flex;gap:8px;align-items:center;font-size:13px;letter-spacing:.5px}
+    .watermark a,.watermark span{color:rgba(255,255,255,.82);background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px 8px;text-decoration:none;font-weight:600}
+    .watermark a:hover{background:rgba(255,255,255,.24);color:white}
+    .github-icon{display:inline-flex;align-items:center;justify-content:center;padding:3px 7px!important}
+    .github-icon svg{width:15px;height:15px;fill:currentColor}
+    .tab-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+    .tab-btn{background:#e2e8f0;color:#334155;padding:8px 6px;margin:0;border-color:#d5dde8}
+    .tab-btn.active{background:#2f6f9f;color:white;border-color:#2f6f9f}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
+    .splitter{height:10px;cursor:row-resize;display:flex;align-items:center;justify-content:center}
+    .splitter::before{content:"";display:block;width:80px;height:4px;border-radius:4px;background:#cbd5e1}
+    .splitter:hover::before{background:#64748b}
+    @media(max-width:900px){aside{width:100%}.splitter-v{display:none}main{grid-template-rows:430px 10px 260px}}
+  </style>
+</head>
+<body>
+<header>钢桩桩位偏差计算 <span class="watermark"><span>Fcs_×TREA</span><a class="github-icon" href="https://github.com/Fcs113322" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.64 0 8.13c0 3.59 2.29 6.63 5.47 7.71.4.08.55-.18.55-.39 0-.19-.01-.83-.01-1.5-2.01.38-2.53-.5-2.69-.96-.09-.24-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.21-3.64-.9-3.64-4 0-.88.31-1.61.82-2.18-.08-.2-.36-1.03.08-2.15 0 0 .67-.22 2.2.83A7.46 7.46 0 0 1 8 3.96c.68 0 1.36.09 2 .27 1.53-1.05 2.2-.83 2.2-.83.44 1.12.16 1.95.08 2.15.51.57.82 1.29.82 2.18 0 3.11-1.87 3.79-3.65 4 .29.25.54.75.54 1.52 0 1.09-.01 1.97-.01 2.24 0 .21.15.47.55.39A8.04 8.04 0 0 0 16 8.13C16 3.64 12.42 0 8 0Z"/></svg></a></span></header>
+<div class="wrap">
+  <aside>
+    <div class="tab-buttons">
+      <button id="tabMeasure" class="tab-btn active" onclick="showSideTab('measure')">测量</button>
+      <button id="tabTheory" class="tab-btn" onclick="showSideTab('theory')">理论</button>
+      <button id="tabMapping" class="tab-btn" onclick="showSideTab('mapping')">对应</button>
+    </div>
+    <div class="card tab-panel active" data-tab="measure">
+      <h3>测量数据</h3>
+      <label class="file-pick" for="measureFile">选择测量文件</label>
+      <input id="measureFile" class="file-input" type="file" accept=".xlsx,.xlsm,.csv,.txt" onchange="showFileName('measureFile','measureFileName')">
+      <div id="measureFileName" class="file-name">尚未选择文件</div>
+      <button onclick="loadMeasure()">导入测量文件并计算</button>
+      <button class="secondary" onclick="exportResult()">导出结果 Excel</button>
+    </div>
+    <div id="mappingCard" class="card tab-panel open" data-tab="mapping">
+      <h3>桩号对应</h3>
+      <div id="mappingStatus" class="small"></div>
+      <div class="collapse-body">
+        <label class="file-pick" for="mappingFile">选择桩号对应文件</label>
+        <input id="mappingFile" class="file-input" type="file" accept=".xlsx,.xlsm,.csv,.txt" onchange="showFileName('mappingFile','mappingFileName')">
+        <div id="mappingFileName" class="file-name">尚未选择文件</div>
+        <button class="secondary" onclick="loadMappingFile()">上传桩号对应文件</button>
+        <div class="row">
+          <div><label>测量桩号列</label><select id="measureCol"></select></div>
+          <div><label>展示/理论桩号列</label><select id="displayCol"></select></div>
+        </div>
+        <button onclick="applyMapping()">应用桩号对应</button>
+        <button class="danger" onclick="clearMapping()">清空对应关系</button>
+        <div class="scroll">
+          <table id="mappingTable">
+            <thead><tr><th>测量桩号</th><th>展示桩号</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card tab-panel" data-tab="theory">
+      <h3>理论桩位</h3>
+      <div class="toolbar">
+        <button onclick="openTheoryModal()">添加</button>
+      </div>
+      <label class="file-pick" for="theoryFile">选择理论桩位文件</label>
+      <input id="theoryFile" class="file-input" type="file" accept=".xlsx,.xlsm,.csv,.txt" onchange="showFileName('theoryFile','theoryFileName')">
+      <div id="theoryFileName" class="file-name">尚未选择文件</div>
+      <button class="secondary" onclick="importTheory()">批量导入理论桩位</button>
+      <button class="danger" onclick="clearTheory()">一键删除已保存理论桩位</button>
+    </div>
+    <div class="card tab-panel" data-tab="theory">
+      <h3>已保存理论桩位</h3>
+      <div class="scroll">
+        <table id="theoryTable">
+          <thead><tr><th>桩名</th><th>X(m)</th><th>Y(m)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </aside>
+  <div id="splitterV" class="splitter-v" title="拖动调整侧边栏宽度"></div>
+  <main class="main">
+    <div class="card canvas-card">
+      <div class="legend">
+        <div class="legend-item"><span class="legend-mark legend-blue"></span><span>实际桩位</span></div>
+        <div class="legend-item"><span class="legend-mark legend-red"></span><span>理论桩位</span></div>
+        <div class="legend-item"><span class="legend-mark legend-gray"></span><span>边点</span></div>
+        <div class="legend-item"><span class="legend-mark legend-line"></span><span>偏位方向</span></div>
+      </div>
+      <canvas id="plot"></canvas>
+    </div>
+    <div id="splitter" class="splitter" title="拖动调整绘图和数据区域大小"></div>
+    <div class="card data-card">
+      <h3>实际桩位与理论桩位偏差</h3>
+      <div class="scroll">
+        <table id="resultTable">
+          <thead><tr><th>桩名</th><th>实际X(m)</th><th>实际Y(m)</th><th>理论X(m)</th><th>理论Y(m)</th><th>ΔX(mm)</th><th>ΔY(mm)</th><th>平面偏差(mm)</th><th>状态</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="theoryModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="theoryModalTitle">添加理论桩位</h3>
+      <button class="outline" onclick="closeTheoryModal()">关闭</button>
+    </div>
+    <label>桩名称</label><input id="pile">
+    <div class="row">
+      <div><label>理论X(m)</label><input id="tx" type="number" step="0.001"></div>
+      <div><label>理论Y(m)</label><input id="ty" type="number" step="0.001"></div>
+    </div>
+    <label>理论H(m)，可留空</label><input id="th" type="number" step="0.001">
+    <label>备注</label><input id="note">
+    <div class="modal-actions">
+      <button class="danger" onclick="deleteTheory()">删除</button>
+      <button onclick="saveTheory()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE_KEY="pile_theory_v1";
+const MAP_STORE_KEY="pile_mapping_v1";
+const NAME_RE=/^(\d{8})_(.+)_([123])$/;
+let theory=loadTheoryStore(), rawRows=[], results=[], merged=[], editingPile="";
+let pileMap=loadMappingStore(), mappingRows=[];
+const fmt=v=>(v===null||v===undefined||Number.isNaN(v))?"":Number(v).toFixed(3);
+const fmtMm=v=>(v===null||v===undefined||Number.isNaN(v))?"":String(Math.round(Number(v)));
+function setStatus(s){
+  const status=document.getElementById("status");
+  if(status)status.innerText=s;
+  const fileName=document.getElementById("measureFileName");
+  if(fileName)fileName.innerText=s;
+}
+function loadTheoryStore(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||"{}")}catch{return {}}}
+function saveTheoryStore(){localStorage.setItem(STORE_KEY,JSON.stringify(theory))}
+function loadMappingStore(){try{return JSON.parse(localStorage.getItem(MAP_STORE_KEY)||"{}")}catch{return {}}}
+function saveMappingStore(){localStorage.setItem(MAP_STORE_KEY,JSON.stringify(pileMap))}
+function toNumber(v){if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(v);return Number.isFinite(n)?n:null}
+function showFileName(inputId,targetId){
+  const file=document.getElementById(inputId).files[0];
+  document.getElementById(targetId).innerText=file?file.name:"尚未选择文件";
+}
+function showSideTab(tab){
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.toggle("active",p.dataset.tab===tab));
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  const btn={measure:"tabMeasure",theory:"tabTheory",mapping:"tabMapping"}[tab];
+  if(btn)document.getElementById(btn).classList.add("active");
+}
+function toggleMappingPanel(forceOpen=null){
+  const card=document.getElementById("mappingCard");
+  const open=forceOpen===null?!card.classList.contains("open"):forceOpen;
+  card.classList.toggle("open",open);
+  const toggle=document.getElementById("mappingToggle");
+  if(toggle)toggle.innerText=open?"收起":"展开";
+}
+function mappedPileName(pile){return pileMap[pile]||pile}
+function buildTheoryLookup(){
+  const lookup={};
+  Object.values(theory).forEach(t=>{
+    const display=mappedPileName(t.pile);
+    lookup[display]={...t,pile:display,source_pile:t.pile};
+  });
+  Object.values(theory).forEach(t=>{
+    lookup[t.pile]={...t,pile:mappedPileName(t.pile),source_pile:t.pile};
+  });
+  return lookup;
+}
+
+function sheetRowsFromWorkbook(wb, allSheets=false){
+  const rows=[];
+  const names=allSheets?wb.SheetNames:[wb.SheetNames[0]];
+  names.forEach(n=>{
+    const ws=wb.Sheets[n];
+    XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""}).forEach(r=>rows.push(r));
+  });
+  return rows;
+}
+function parseTextRows(text){
+  return text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>line.split(/[\s,，;；\t]+/));
+}
+async function readRows(file, allSheets=false){
+  const ext=file.name.split(".").pop().toLowerCase();
+  if(["xlsx","xlsm"].includes(ext)){
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array"});
+    return sheetRowsFromWorkbook(wb,allSheets);
+  }
+  const text=await file.text();
+  return parseTextRows(text);
+}
+
+function parseMeasureRows(rows){
+  const out=[];
+  rows.forEach(r=>{
+    if(!r||r.length<3)return;
+    const name=String(r[0]??"").trim();
+    const m=name.match(NAME_RE);
+    if(!m)return;
+    const sx=toNumber(r[1]), sy=toNumber(r[2]);
+    if(sx===null||sy===null)return;
+    out.push({name,date:m[1],pile:m[2],idx:Number(m[3]),survey_x:sx,survey_y:sy,elev:toNumber(r[3]),math_x:sy,math_y:sx});
+  });
+  return out;
+}
+function circleCenter(points){
+  const ox=(points[0][0]+points[1][0]+points[2][0])/3;
+  const oy=(points[0][1]+points[1][1]+points[2][1])/3;
+  const p=points.map(([x,y])=>[x-ox,y-oy]);
+  const [x1,y1]=p[0], [x2,y2]=p[1], [x3,y3]=p[2];
+  const a=2*(x2-x1), b=2*(y2-y1), c=x2*x2+y2*y2-x1*x1-y1*y1;
+  const d=2*(x3-x1), e=2*(y3-y1), f=x3*x3+y3*y3-x1*x1-y1*y1;
+  const det=a*e-b*d;
+  if(Math.abs(det)<1e-12)throw new Error("三点共线或过于接近，无法确定圆");
+  const cx=(c*e-b*f)/det+ox;
+  const cy=(a*f-c*d)/det+oy;
+  const rs=points.map(([x,y])=>Math.hypot(x-cx,y-cy));
+  return {math_x:cx,math_y:cy,actual_x:cy,actual_y:cx,radius:rs.reduce((a,b)=>a+b,0)/3,radius_diff:Math.max(...rs)-Math.min(...rs)};
+}
+function calcRows(rows){
+  const groups={};
+  rows.forEach(r=>{(groups[r.pile]??=[]).push(r)});
+  return Object.keys(groups).sort().map(pile=>{
+    const pts=groups[pile].sort((a,b)=>a.idx-b.idx);
+    if(pts.length!==3)return {pile,count:pts.length,status:`点数不是3：${pts.length}`,names:pts.map(p=>p.name).join(", "),raw:pts};
+    try{
+      const c=circleCenter(pts.map(p=>[p.math_x,p.math_y]));
+      return {pile,count:3,...c,status:"OK",names:pts.map(p=>p.name).join(", "),raw:pts};
+    }catch(e){
+      return {pile,count:pts.length,status:e.message,names:pts.map(p=>p.name).join(", "),raw:pts};
+    }
+  });
+}
+function buildMerged(){
+  const theoryLookup=buildTheoryLookup();
+  merged=results.map(r=>{
+    const displayPile=mappedPileName(r.pile);
+    const item={...r,measure_pile:r.pile,pile:displayPile,theory_x:null,theory_y:null,theory_h:null,dx_mm:null,dy_mm:null,offset_mm:null,offset_status:"未录入理论桩位"};
+    const t=theoryLookup[displayPile]||theoryLookup[r.pile];
+    if(t&&r.actual_x!==undefined&&r.actual_y!==undefined){
+      item.theory_x=t.survey_x; item.theory_y=t.survey_y; item.theory_h=t.h;
+      const dx=r.actual_x-t.survey_x, dy=r.actual_y-t.survey_y;
+      item.dx_mm=Math.round(dx*1000);
+      item.dy_mm=Math.round(dy*1000);
+      item.offset_mm=Math.round(Math.hypot(dx,dy)*1000);
+      item.offset_status=item.offset_mm>100?"超限":"OK";
+    }
+    return item;
+  });
+}
+
+async function loadMeasure(){
+  const file=document.getElementById("measureFile").files[0];
+  if(!file){alert("请选择测量文件。");return}
+  try{
+    const rows=await readRows(file,true);
+    rawRows=parseMeasureRows(rows);
+    results=calcRows(rawRows);
+    buildMerged();
+    renderResults(); draw();
+    setStatus(`已读取 ${file.name}，识别 ${results.length} 个桩。`);
+  }catch(e){alert("测量文件读取失败："+e.message)}
+}
+async function importTheory(){
+  const file=document.getElementById("theoryFile").files[0];
+  if(!file){alert("请选择理论桩位文件。");return}
+  try{
+    const rows=await readRows(file,false);
+    let count=0;
+    rows.forEach(r=>{
+      if(!r||r.length<3)return;
+      const pile=String(r[0]??"").trim();
+      const x=toNumber(r[1]), y=toNumber(r[2]), h=toNumber(r[3]);
+      if(!pile||x===null||y===null)return;
+      theory[pile]={pile,survey_x:x,survey_y:y,h,note:(theory[pile]||{}).note||""};
+      count++;
+    });
+    saveTheoryStore(); buildMerged(); renderTheory(); renderResults(); draw();
+    alert(`已导入/更新 ${count} 条理论桩位。`);
+  }catch(e){alert("理论文件读取失败："+e.message)}
+}
+async function loadMappingFile(){
+  const file=document.getElementById("mappingFile").files[0];
+  if(!file){alert("请选择桩号对应文件。");return}
+  try{
+    toggleMappingPanel(true);
+    mappingRows=(await readRows(file,false)).filter(r=>r&&r.some(c=>String(c??"").trim()!==""));
+    if(!mappingRows.length){alert("没有读取到有效数据。");return}
+    renderMappingSelectors();
+    document.getElementById("mappingStatus").innerText=`已读取 ${file.name}，请选择测量桩号列和展示/理论桩号列后点击“应用桩号对应”。`;
+  }catch(e){alert("桩号对应文件读取失败："+e.message)}
+}
+function openTheoryModal(sourcePile=""){
+  editingPile=sourcePile;
+  const modal=document.getElementById("theoryModal");
+  const title=document.getElementById("theoryModalTitle");
+  if(sourcePile&&theory[sourcePile]){
+    const t=theory[sourcePile];
+    title.innerText="编辑理论桩位";
+    document.getElementById("pile").value=mappedPileName(t.pile);
+    document.getElementById("tx").value=fmt(t.survey_x);
+    document.getElementById("ty").value=fmt(t.survey_y);
+    document.getElementById("th").value=fmt(t.h);
+    document.getElementById("note").value=t.note||"";
+  }else{
+    title.innerText="添加理论桩位";
+    document.getElementById("pile").value="";
+    document.getElementById("tx").value="";
+    document.getElementById("ty").value="";
+    document.getElementById("th").value="";
+    document.getElementById("note").value="";
+  }
+  modal.classList.add("show");
+}
+function closeTheoryModal(){
+  document.getElementById("theoryModal").classList.remove("show");
+}
+function isLikelyHeader(row){
+  if(!row||row.length<2)return false;
+  const text=row.map(c=>String(c??"")).join("");
+  return /桩|号|名称|name|测量|理论|展示/i.test(text);
+}
+function renderMappingSelectors(){
+  const first=mappingRows[0]||[];
+  const header=isLikelyHeader(first);
+  const maxCols=Math.max(...mappingRows.slice(0,20).map(r=>r.length));
+  const labels=[];
+  for(let i=0;i<maxCols;i++){
+    labels.push(header?`${i+1}列：${first[i]??""}`:`第${i+1}列`);
+  }
+  const mSel=document.getElementById("measureCol"), dSel=document.getElementById("displayCol");
+  mSel.innerHTML=labels.map((l,i)=>`<option value="${i}">${l}</option>`).join("");
+  dSel.innerHTML=labels.map((l,i)=>`<option value="${i}">${l}</option>`).join("");
+  if(maxCols>1)dSel.value="1";
+}
+function applyMapping(){
+  if(!mappingRows.length){alert("请先上传桩号对应文件。");return}
+  const mi=Number(document.getElementById("measureCol").value);
+  const di=Number(document.getElementById("displayCol").value);
+  if(mi===di){alert("测量桩号列和展示/理论桩号列不能相同。");return}
+  const start=isLikelyHeader(mappingRows[0])?1:0;
+  const next={};
+  for(let i=start;i<mappingRows.length;i++){
+    const r=mappingRows[i]||[];
+    const mp=String(r[mi]??"").trim();
+    const dp=String(r[di]??"").trim();
+    if(mp&&dp)next[mp]=dp;
+  }
+  pileMap=next;
+  saveMappingStore();
+  buildMerged(); renderMapping(); renderTheory(); renderResults(); draw();
+  document.getElementById("mappingStatus").innerText=`已启用 ${Object.keys(pileMap).length} 条桩号对应关系。`;
+}
+function clearMapping(){
+  pileMap={}; mappingRows=[];
+  saveMappingStore();
+  document.getElementById("measureCol").innerHTML="";
+  document.getElementById("displayCol").innerHTML="";
+  document.getElementById("mappingStatus").innerText="未启用桩号对应。";
+  buildMerged(); renderMapping(); renderTheory(); renderResults(); draw();
+}
+function saveTheory(){
+  const pile=document.getElementById("pile").value.trim();
+  const x=toNumber(document.getElementById("tx").value), y=toNumber(document.getElementById("ty").value), h=toNumber(document.getElementById("th").value);
+  if(!pile||x===null||y===null){alert("请填写桩名称、理论X和理论Y。");return}
+  if(editingPile&&editingPile!==pile)delete theory[editingPile];
+  theory[pile]={pile,survey_x:x,survey_y:y,h,note:document.getElementById("note").value.trim()};
+  editingPile=pile;
+  saveTheoryStore(); buildMerged(); renderTheory(); renderResults(); draw();
+  closeTheoryModal();
+}
+function deleteTheory(){
+  const pile=document.getElementById("pile").value.trim();
+  const key=editingPile||pile;
+  if(!key){alert("请输入或选择要删除的桩名称。");return}
+  if(!confirm(`确定删除 ${pile||key} 的理论桩位吗？`))return;
+  delete theory[key]; editingPile="";
+  saveTheoryStore(); buildMerged(); renderTheory(); renderResults(); draw();
+  closeTheoryModal();
+}
+function clearTheory(){
+  const count=Object.keys(theory).length;
+  if(!count){alert("当前没有已保存的理论桩位。");return}
+  if(!confirm(`确定删除全部 ${count} 条已保存理论桩位吗？此操作不可恢复。`))return;
+  theory={};
+  editingPile="";
+  saveTheoryStore();
+  buildMerged();
+  renderTheory();
+  renderResults();
+  draw();
+}
+function renderMapping(){
+  const tb=document.querySelector("#mappingTable tbody");
+  tb.innerHTML="";
+  Object.keys(pileMap).sort().forEach(k=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${k}</td><td>${pileMap[k]}</td>`;
+    tb.appendChild(tr);
+  });
+  if(Object.keys(pileMap).length){
+    document.getElementById("mappingStatus").innerText=`已启用 ${Object.keys(pileMap).length} 条桩号对应关系。`;
+  }else{
+    document.getElementById("mappingStatus").innerText="";
+  }
+}
+function renderTheory(){
+  const tb=document.querySelector("#theoryTable tbody");
+  tb.innerHTML="";
+  Object.values(theory).sort((a,b)=>mappedPileName(a.pile).localeCompare(mappedPileName(b.pile))).forEach(t=>{
+    const displayPile=mappedPileName(t.pile);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${displayPile}</td><td>${fmt(t.survey_x)}</td><td>${fmt(t.survey_y)}</td>`;
+    tr.onclick=()=>{
+      openTheoryModal(t.pile);
+    };
+    tb.appendChild(tr);
+  });
+}
+function renderResults(){
+  const tb=document.querySelector("#resultTable tbody");
+  tb.innerHTML="";
+  merged.forEach(m=>{
+    const tr=document.createElement("tr");
+    const status=m.theory_x===null?"未录入理论桩位":m.offset_status;
+    const cls=status==="超限"?"status-warn":(status==="OK"?"status-ok":"status-missing");
+    if(status==="超限")tr.classList.add("row-warn");
+    tr.innerHTML=`<td>${m.pile}</td><td>${fmt(m.actual_x)}</td><td>${fmt(m.actual_y)}</td><td>${fmt(m.theory_x)}</td><td>${fmt(m.theory_y)}</td><td>${fmtMm(m.dx_mm)}</td><td>${fmtMm(m.dy_mm)}</td><td>${fmtMm(m.offset_mm)}</td><td><span class="status-pill ${cls}">${status}</span></td>`;
+    tb.appendChild(tr);
+  });
+  initResultColumnResize();
+}
+function initResultColumnResize(){
+  const table=document.getElementById("resultTable");
+  const ths=table.querySelectorAll("thead th");
+  const defaults=[90,90,90,90,90,80,80,105,80];
+  ths.forEach((th,i)=>{
+    if(th.querySelector(".col-resizer"))return;
+    if(!th.style.width)th.style.width=(defaults[i]||80)+"px";
+    const grip=document.createElement("span");
+    grip.className="col-resizer";
+    grip.addEventListener("mousedown",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const startX=e.clientX;
+      const startW=th.offsetWidth;
+      const move=ev=>{
+        const w=Math.max(60,startW+ev.clientX-startX);
+        th.style.width=w+"px";
+        table.querySelectorAll(`tbody tr td:nth-child(${i+1})`).forEach(td=>td.style.width=w+"px");
+      };
+      const up=()=>{
+        window.removeEventListener("mousemove",move);
+        window.removeEventListener("mouseup",up);
+        document.body.style.userSelect="";
+      };
+      document.body.style.userSelect="none";
+      window.addEventListener("mousemove",move);
+      window.addEventListener("mouseup",up);
+    });
+    th.appendChild(grip);
+  });
+}
+function exportResult(){
+  if(!merged.length){alert("请先导入测量文件。");return}
+  const deviation=[["桩名","实际X(m)","实际Y(m)","理论X(m)","理论Y(m)","理论H(m)","ΔX(mm)","ΔY(mm)","平面偏差(mm)","状态"]];
+  merged.forEach(m=>deviation.push([m.pile,m.actual_x,m.actual_y,m.theory_x,m.theory_y,m.theory_h,m.dx_mm,m.dy_mm,m.offset_mm,m.theory_x===null?"未录入理论桩位":m.offset_status]));
+  const centers=[["桩名","点数","实际X(m)","实际Y(m)","状态","使用点名"]];
+  merged.forEach(m=>centers.push([m.pile,m.count,m.actual_x,m.actual_y,m.status,m.names]));
+  const raw=[["原始点名","日期","桩名","点序号","测量X(m)","测量Y(m)","高程(m)"]];
+  rawRows.forEach(r=>raw.push([r.name,r.date,r.pile,r.idx,r.survey_x,r.survey_y,r.elev]));
+  const th=[["桩名","理论X(m)","理论Y(m)","理论H(m)","备注"]];
+  Object.values(theory).forEach(t=>th.push([mappedPileName(t.pile),t.survey_x,t.survey_y,t.h,t.note]));
+  const mp=[["测量桩号","展示桩号"]];
+  Object.keys(pileMap).forEach(k=>mp.push([k,pileMap[k]]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(deviation),"理论偏差对比");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(centers),"桩中心结果");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(raw),"原始点解析");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(th),"理论桩位库");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mp),"桩号对应");
+  XLSX.writeFile(wb,"桩中心坐标与理论偏差结果.xlsx");
+}
+
+function draw(){
+  const c=document.getElementById("plot"), ctx=c.getContext("2d");
+  const fixedW=1100, fixedH=560;
+  c.width=fixedW*devicePixelRatio;
+  c.height=fixedH*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  const w=fixedW,h=fixedH;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h);
+  if(!merged.length){ctx.fillStyle="#64748b";ctx.font="16px Microsoft YaHei";ctx.fillText("导入测量文件后显示桩位图",w/2-120,h/2);return}
+  const pts=[];
+  merged.forEach(m=>{
+    if(m.actual_x!==undefined)pts.push([m.actual_y,m.actual_x,m.radius||0]);
+    if(m.theory_x!==null)pts.push([m.theory_y,m.theory_x,m.radius||0]);
+    (m.raw||[]).forEach(p=>pts.push([p.survey_y,p.survey_x,0]));
+  });
+  let minX=Math.min(...pts.map(p=>p[0]-p[2])),maxX=Math.max(...pts.map(p=>p[0]+p[2]));
+  let minY=Math.min(...pts.map(p=>p[1]-p[2])),maxY=Math.max(...pts.map(p=>p[1]+p[2]));
+  if(maxX-minX<1e-6){minX-=1;maxX+=1} if(maxY-minY<1e-6){minY-=1;maxY+=1}
+  const pad=55,scale=Math.min((w-pad*2)/(maxX-minX),(h-pad*2)/(maxY-minY));
+  const cv=(x,y)=>[pad+(x-minX)*scale,h-pad-(y-minY)*scale];
+  const labelBoxes=[];
+  function overlaps(a,b){return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y)}
+  function drawLabel(text,x,y,color,candidates){
+    ctx.font="12px Microsoft YaHei";
+    const tw=ctx.measureText(text).width,th=16,margin=4;
+    let box=null;
+    for(const [dx,dy] of candidates){
+      const bx=Math.min(Math.max(x+dx,pad+2),w-pad-tw-margin*2-2);
+      const by=Math.min(Math.max(y+dy-th,pad+2),h-pad-th-margin*2-2);
+      const test={x:bx,y:by,w:tw+margin*2,h:th+margin*2};
+      if(!labelBoxes.some(b=>overlaps(test,b))){box=test;break}
+    }
+    if(!box){const [dx,dy]=candidates[0];box={x:Math.min(Math.max(x+dx,pad+2),w-pad-tw-margin*2-2),y:Math.min(Math.max(y+dy-th,pad+2),h-pad-th-margin*2-2),w:tw+margin*2,h:th+margin*2}}
+    ctx.fillStyle="rgba(255,255,255,.88)";ctx.fillRect(box.x,box.y,box.w,box.h);
+    ctx.strokeStyle="#e2e8f0";ctx.lineWidth=1;ctx.strokeRect(box.x,box.y,box.w,box.h);
+    ctx.fillStyle=color;ctx.fillText(text,box.x+margin,box.y+th);labelBoxes.push(box);
+  }
+  ctx.strokeStyle="#eef2f7";ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){let x=pad+i*(w-pad*2)/5,y=pad+i*(h-pad*2)/5;ctx.beginPath();ctx.moveTo(x,pad);ctx.lineTo(x,h-pad);ctx.stroke();ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad,y);ctx.stroke()}
+  ctx.strokeStyle="#cbd5e1";ctx.strokeRect(pad,pad,w-pad*2,h-pad*2);
+  merged.forEach(m=>{
+    (m.raw||[]).forEach(p=>{const [x,y]=cv(p.survey_y,p.survey_x);ctx.fillStyle="#666";ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill()});
+    if(m.actual_x!==undefined){const [x,y]=cv(m.actual_y,m.actual_x),r=Math.max((m.radius||0)*scale,4);ctx.strokeStyle="#1f77b4";ctx.setLineDash([]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.fillStyle="#1f77b4";ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();drawLabel(`${m.pile} 实际`,x,y,"#1f77b4",[[10,-10],[10,-30],[-80,-10],[-80,22],[10,32]])}
+    if(m.theory_x!==null){const [x,y]=cv(m.theory_y,m.theory_x),r=Math.max((m.radius||0)*scale,4);ctx.strokeStyle="#d62728";ctx.setLineDash([5,3]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.moveTo(x,y-6);ctx.lineTo(x,y+6);ctx.stroke();drawLabel(`平面偏差=${fmtMm(m.offset_mm)}mm`,x,y,"#d62728",[[10,26],[10,46],[-110,26],[-110,-12],[10,-32]]);if(m.actual_x!==undefined){const [ax,ay]=cv(m.actual_y,m.actual_x);ctx.strokeStyle="#d62728";ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([])}}
+  });
+}
+function initSplitter(){
+  const splitter=document.getElementById("splitter");
+  const main=document.querySelector(".main");
+  let dragging=false;
+  splitter.addEventListener("mousedown",()=>{dragging=true;document.body.style.userSelect="none"});
+  window.addEventListener("mouseup",()=>{if(dragging){dragging=false;document.body.style.userSelect=""}});
+  window.addEventListener("mousemove",e=>{
+    if(!dragging)return;
+    const r=main.getBoundingClientRect();
+    const top=Math.max(220,Math.min(e.clientY-r.top,r.height-190));
+    main.style.gridTemplateRows=`${top}px 10px minmax(160px,1fr)`;
+    draw();
+  });
+}
+function initVSplitter(){
+  const splitterV=document.getElementById("splitterV");
+  const aside=document.querySelector("aside");
+  const wrap=document.querySelector(".wrap");
+  let dragging=false;
+  splitterV.addEventListener("mousedown",()=>{dragging=true;document.body.style.userSelect="none"});
+  window.addEventListener("mouseup",()=>{if(dragging){dragging=false;document.body.style.userSelect=""}});
+  window.addEventListener("mousemove",e=>{
+    if(!dragging)return;
+    const r=wrap.getBoundingClientRect();
+    const w=Math.max(240,Math.min(e.clientX-r.left,r.width-400));
+    aside.style.width=w+"px";
+    draw();
+  });
+}
+window.onresize=draw;
+renderTheory();
+renderMapping();
+initSplitter();
+initVSplitter();
+draw();
+</script>
+</body>
+</html>
